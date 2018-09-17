@@ -1,4 +1,5 @@
 # socket-back-test
 
-###START
-`node .`
+### START
+
+$> `node .`
