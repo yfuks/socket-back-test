@@ -1,0 +1,22 @@
+{
+  "name": "socket-test",
+  "version": "1.0.0",
+  "description": "### START",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yfuks/socket-back-test.git"
+  },
+  "author": "yfuks",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yfuks/socket-back-test/issues"
+  },
+  "homepage": "https://github.com/yfuks/socket-back-test#readme",
+  "dependencies": {
+    "http-headers": "^3.0.2"
+  }
+}

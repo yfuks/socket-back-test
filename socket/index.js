@@ -1,8 +1,11 @@
 var Log = require('../tools/log');
+var Handshake = require('./data/handshake');
+var onData = require('./data');
 
 class Socket {
   constructor(socket) {
     this.socket = socket;
+    this.handshakeDone = false;
     this.name = socket.remoteAddress + ":" + socket.remotePort;
 
     console.log('New Socket ' + this.name);
@@ -16,14 +19,18 @@ class Socket {
     this.socket.on('ready', () => this.onReady());
     this.socket.on('data', data => this.onData(data));
     this.socket.on('drain', () => console.log('connected'));
+    this.socket.on('connect', () => console.log('connect'));
 
-    this.socket.write("Welcome " + this.name + "\n");
-    //broadcast(this.name + " joined the chat\n", this.socket);
     this.socket.setKeepAlive(true);
   }
 
   onData(data) {
-    Log(this.name, data);
+    if (!this.handshakeDone) {
+      Handshake(data, this);
+      return ;
+    }
+
+    onData(data, this);
   }
 
   onError(error) {
@@ -31,7 +38,7 @@ class Socket {
   }
 
   onClose() {
-    //Log(this.name, 'close');
+    Log(this.name, 'close');
   }
 
   onTimeout() {
@@ -40,7 +47,7 @@ class Socket {
   }
 
   onEnd() {
-    //Log(this.name, 'end');
+    Log(this.name, 'end');
     this.remove();
   }
 
