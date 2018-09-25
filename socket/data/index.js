@@ -1,45 +1,74 @@
 const handshake = require('./handshake');
-const Log = require('../../tools/log');
+const Protocols = require('../protocols');
+const httpBadRequest = require('../constants/httpHeaders').badRequest;
+const sendPong = require('./pong');
 
-const _toArrayBuffer = (buf) => {
-    var ab = new ArrayBuffer(buf.length);
-    var view = new Uint8Array(ab);
-    for (var i = 0; i < buf.length; ++i) {
-        view[i] = buf[i];
-    }
-    return ab;
-}
+const _getOpcode = data => {
+  const buffer = Buffer.alloc(1, data.slice(0, 1), 'hex');
+  var opcode = buffer.readUIntBE(0, 1);
+  opcode &= 0x0F;
+
+  return opcode;
+};
 
 const onData = (data, socket) => {
-  Log(socket.name + " row data > ", data);
+  const opcode = _getOpcode(data);
 
-  //const buff = Buffer.from(JSON.stringify(data));
-  //const arrayBuff = _toArrayBuffer(buff);
-  //console.log(buff);
+  switch (opcode) {
+    case 0:
+      //@TODO Continuation Frame
+      break;
+    case 1:
+      socket._protocol = Protocols.getProtocolByName('text');
+      break;
+    case 2:
+      socket._protocol = Protocols.getProtocolByName('binary');
+      break;
+    case 8:
+      console.log('received close from client');
+      socket.remove();
+      return;
+    case 9:
+      console.log('received ping from client');
+      //sendPong(data, socket);
+      return;
+    case 10:
+      console.log('received pong from client');
+      // ping
+      break;
+    default:
+      break;
+  }
 
-  //const dataView = new DataView(arrayBuff, 48);
-  //var buffer = new Buffer(data.slice(1, 2), 'hex');
-  var buffer = Buffer.alloc(2, data.slice(1, 2), 'hex');
+  var bytesRead = 0;
+
+  var buffer = Buffer.alloc(1, data.slice(1, 2), 'hex');
   var payloadLength = buffer.readUIntBE(0, 1);
   payloadLength &= ~(1 << 7);
-  console.log('payloadLength:', payloadLength);
-  //console.log(parseInt(len, 10));
-  //len &= ~(0x8);
-  //console.log(len);
-  //var lenView = new DataView(arrayBuff, 16, 6);
-  //var LENGTH = lenView.getUint8(0);
-  //console.log(LENGTH);
 
-  //@TODO if payloadLength >= 126
+  bytesRead += 2;
 
-  var MASK = data.slice(2, 6); // 4, 8
-  var ENCODED = data.slice(6, data.length);
-
-  var DECODED = "";
-  for (var i = 0; i < ENCODED.length; i++) {
-    DECODED += String.fromCharCode(parseInt(ENCODED[i] ^ MASK[i % 4], 10));
+  if (payloadLength === 126) {
+    buffer = Buffer.alloc(2, data.slice(2, 4), 'hex');
+    payloadLength = buffer.readUIntBE(0, 2);
+    bytesRead += 2;
+  } else if (payloadLength === 127) {
+    buffer = Buffer.alloc(8, data.slice(2, 10), 'hex');
+    payloadLength = buffer.readUIntBE(0, 8);
+    bytesRead += 8;
   }
-  console.log(`decoded: "${DECODED}"`);
+
+  var DECODED = socket._protocol.decodeData(data, payloadLength, bytesRead);
+  if (socket._subProtocol) {
+    try {
+      DECODED = socket._subProtocol.parseData(DECODED);
+      socket._subProtocol.use(DECODED, socket);
+    } catch (e) {
+      console.warn(e.message);
+    }
+    return;
+  }
+  console.log(`opcode: ${opcode} len: ${payloadLength} decoded:`, DECODED);
 };
 
 module.exports = onData;
