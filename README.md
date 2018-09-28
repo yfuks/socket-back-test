@@ -2,4 +2,4 @@
 
 ### START
 
-$> `node .`
+$> `npm i && node .`
